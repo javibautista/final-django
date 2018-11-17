@@ -1,0 +1,56 @@
+{% extends 'crud/base.html' %}
+{% block body %}
+<form class="form-inline"  action="create" method="POST">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="firstname">NOMBRE</label>
+        <input type="text" name="firstname" class="form-control" style="width:54%;" required="required"/>
+        <br>
+        <label for="lastname">APELLIDO</label>
+        <input type="text" name="lastname" class="form-control" style="width:51%;" required="required"/>
+        <br>
+        <label for="dni">DNI</label>
+        <input type="text" name="dni" class="form-control" style="width:68%;" 
+required="required"/>
+        <br>
+        <label for="fecha_nacimiento">F. NAC.</label>
+        <input type="date" name="fecha_nacimiento" class="form-control" style="width:59%;" 
+required="required"/>
+        <br>
+        <br>
+        <button type="submit" class="btn btn-sm btn-primary"><span class="glyphicon glyphicon-plus"></span> SUSCRIBIRSE</button>
+
+    </div>
+</form>
+<br />
+<form method="GET" action="search">
+            <div class="form-inline">
+                <input type="text" placeholder="Buscar x DNI" name="search" class="form-control" style="width:21%;" required="required" /> 
+                <button class="btn btn-primary btn-sm"><span class="glyphicon glyphicon-search"></span>BUSCAR - DNI</button>
+  
+            </div>
+</form>
+<br />
+<table class="table table-bordered">
+    <thead class="alert-warning">
+        <tr>
+            <th>NOMBRE</th>
+            <th>APELLIDO</th>
+            <th>DNI</th>
+            <th>F. NACIMIENTO</th>
+            <th>ACCIÓN: BAJA MODIFICACIÓN</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for member in members %}
+        <tr>
+            <td>{{ member.firstname }}</td>
+            <td>{{ member.lastname }}</td>
+            <td>{{ member.dni }}</td>
+            <td>{{ member.fecha_nacimiento }}</td>
+            <td><center><a class="btn btn-sm btn-warning" href="edit/{{ member.id }}"><span class="glyphicon glyphicon-edit"></span> Edit</a> <a class="btn btn-sm btn-danger" href="delete/{{ member.id }}"><span class="glyphicon glyphicon-trash"></span> Delete</a></center></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

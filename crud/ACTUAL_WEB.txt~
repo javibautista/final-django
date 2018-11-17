@@ -1,0 +1,334 @@
+INSTALAR POSTGRES
+sudo apt-get install postgresql
+ 
+CREAR BASE DE DATOS Y USUARIO PARA LA MISMA
+sudo su postgres
+psql
+create user cruduser password '12345';
+create database cruddb with owner cruduser;
+grant all privileges on database cruddb to cruduser;
+\q
+Ctrl+D
+ 
+INSTALAR ENTORNO VIRTUAL saltar este si ya se instalo en la PC
+sudo apt-get install python3-virtualenv
+ 
+PREPARAR LOS DIRECTORIOS NECESARIOS
+mkdir django
+cd django
+mkdir final
+cd final
+ 
+CREAR EL ENTORNO VIRTUAL
+python3 -m venv myvenv
+source myvenv/bin/activate
+ 
+INSTALAR DJANGO
+
+pip install django==1.8 psycopg2-binary
+ 
+COMENZAR EL PROYECTO
+django-admin startproject mysite .
+ 
+Editar mysite/settings.py
+ 
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'djangodb',
+        'USER': 'djangouser',
+        'PASSWORD': '12345',
+        'HOST': 'localhost',
+        'PORT': '',
+    }
+}
+ 
+APLICAMOS LOS CAMBIOS
+python manage.py migrate
+ 
+CREAR NUESTRA PRIMERA APLICACION
+python manage.py startapp blog
+ 
+AGREGAMOS LA APLICACION EN SETTINGS
+mysite/settings.py
+ 
+EDITAMOS blog/models.py
+ 
+from django.db import models
+from django.utils import timezone
+ 
+class Post(models.Model):
+    author = models.ForeignKey('auth.User', on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    text = models.TextField()
+    created_date = models.DateTimeField(
+            default=timezone.now)
+    published_date = models.DateTimeField(
+            blank=True, null=True)
+     def publish(self):
+        self.published_date = timezone.now()
+        self.save()
+     def __str__(self):
+        return self.title
+ 
+ 
+CREAR TABLAS PARA EL MODELO
+python manage.py makemigrations blog
+python manage.py migrate blog
+ 
+CREAR SUPERUSUARIO
+blog/admin.py:
+ 
+from django.contrib import admin
+from .models import Post
+admin.site.register(Post)
+                               
+python manage.py createsuperuser
+
+Username: administrador
+Email address: javibautista333@gmail.com
+Password:12345
+Password (again):12345
+Superuser created successfully.
+
+
+python manage.py runserver
+Ingresar a 127.0.0.1:8000/admin y crear varios post
+ 
+AGREGAR URL PARA NUESTRA APP
+mysite/urls.py
+ 
+from django.conf.urls import include, url
+from django.contrib import admin
+ 
+urlpatterns = [
+    url(r'^admin/', include(admin.site.urls)),
+    url(r'', include('blog.urls')),
+]
+ 
+blog/urls.py:
+ 
+from django.conf.urls import include, url
+from . import views
+ 
+urlpatterns = [
+    url(r'^$', views.post_list),
+    url(r'^post/(?P<pk>[0-9]+)/$', views.post_detail, name='post_detail'),
+    url(r'^post/(?P<pk>[0-9]+)/edit/$', views.post_edit, name='post_edit'),
+    url(r'^post/new/$', views.post_new, name='post_new'),
+]
+ 
+CREAR LA VISTA
+blog/views.py:
+ 
+from django.shortcuts import render, get_object_or_404, redirect
+from django.utils import timezone
+from .models import Post
+from .forms import PostForm
+ 
+def post_list(request):
+    posts = Post.objects.filter(published_date__lte=timezone.now()).order_by('published_date')
+    return render(request, 'blog/post_list.html', {'posts': posts})
+ 
+def post_detail(request, pk):
+    post = get_object_or_404(Post, pk=pk)
+    return render(request, 'blog/post_detail.html', {'post': post})
+ 
+def post_new(request):
+    if request.method == "POST":
+        form = PostForm(request.POST)
+        if form.is_valid():
+            post = form.save(commit=False)
+            post.author = request.user
+            post.published_date = timezone.now()
+            post.save()
+            return redirect('post_detail', pk=post.pk)
+    else:
+            form = PostForm()
+    return render(request, 'blog/post_edit.html', {'form': form})
+ 
+def post_edit(request, pk):
+    post = get_object_or_404(Post, pk=pk)
+    if request.method == "POST":
+        form = PostForm(request.POST, instance=post)
+        if form.is_valid():
+            post = form.save(commit=False)
+            post.author = request.user
+            post.save()
+            return redirect('post_detail', pk=post.pk)
+    else:
+            form = PostForm(instance=post)
+    return render(request, 'blog/post_edit.html', {'form': form})
+ 
+ 
+CREAR LOS TEMPLATES
+mkdir -p blog/templates/blog
+ 
+Dentro de esa carpeta, crear base.html:
+ 
+    {% load staticfiles %}
+    <html>
+        <head>
+            <title>Django Girls blog</title>
+            <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+            <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css">
+            <link href='//fonts.googleapis.com/css?family=Lobster&subset=latin,latin-ext' rel='stylesheet' type='text/css'>
+            <link rel="stylesheet" href="{% static 'css/blog.css' %}">
+        </head>
+        <body>
+        <div class="page-header">
+        <a href="{% url 'post_new' %}" class="top-menu"><span class="glyphicon glyphicon-plus"></span></a>
+            <h1><a href="/">Django Girls Blog</a></h1>
+        </div>
+        <div class="content container">
+            <div class="row">
+                <div class="col-md-8">
+                {% block content %}
+                {% endblock %}
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+ 
+tambien post_list.html:
+ 
+{% extends 'blog/base.html' %}
+ 
+ 
+{% block content %}
+    {% for post in posts %}
+        <div class="post">
+            <div class="date">
+                {{ post.published_date }}
+            </div>
+        <h1><a href="{% url 'post_detail' pk=post.pk %}">{{ post.title }}</a></h1>
+            <p>{{ post.text|linebreaksbr }}</p>
+        </div>
+    {% endfor %}
+{% endblock %}
+ 
+ 
+tambien post_detail.html:
+ 
+        {% extends 'blog/base.html' %}
+ 
+    {% block content %}
+        <div class="date">
+        {% if post.published_date %}
+            {{ post.published_date }}
+        {% endif %}
+        <a class="btn btn-default" href="{% url 'post_edit' pk=post.pk %}"><span class="glyphicon glyphicon-pencil"></span></a>
+        </div>
+        <h1>{{ post.title }}</h1>
+        <p>{{ post.text|linebreaksbr }}</p>
+    {% endblock %}
+ 
+ 
+finalmente, post_edit.html:
+ 
+    {% extends 'blog/base.html' %}
+ 
+    {% block content %}
+        <h1>New post</h1>
+        <form method="POST" class="post-form">{% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="save btn btn-default">Save</button>
+        </form>
+    {% endblock %}
+ 
+ 
+CREAR EL ARCHIVO CSS (que dará el formato):
+ 
+mkdir -p blog/static/css
+ 
+y alli, crear el archivo blog.css
+ 
+    .page-header {
+        background-color: #ff9400;
+        margin-top: 0;
+        padding: 20px 20px 20px 40px;
+    }
+ 
+    .page-header h1, .page-header h1 a, .page-header h1 a:visited, .page-header h1 a:active {
+        color: #ffffff;
+        font-size: 36pt;
+        text-decoration: none;
+    }
+ 
+    .content {
+        margin-left: 40px;
+    }
+ 
+    h1, h2, h3, h4 {
+        font-family: 'Lobster', cursive;
+    }
+ 
+    .date {
+        float: right;
+        color: #828282;
+    }
+ 
+    .save {
+        float: right;
+    }
+ 
+    .post-form textarea, .post-form input {
+        width: 100%;
+    }
+ 
+    .top-menu, .top-menu:hover, .top-menu:visited {
+        color: #ffffff;
+        float: right;
+        font-size: 26pt;
+        margin-right: 20px;
+    }
+ 
+    .post {
+        margin-bottom: 70px;
+    }
+ 
+    .post h1 a, .post h1 a:visited {
+        color: #000000;
+    }
+ 
+CREAR EL ARCHIVO PARA LOS FORMULARIOS
+
+ blog/forms.py
+
+from django import forms
+
+from .models import Post
+
+class PostForm(forms.ModelForm):
+
+    class Meta:
+        model = Post
+        fields = ('title', 'text',)
+ 
+CORRER EL SERVIDOR:
+ 
+python manage.py runserver
+ 
+ 
+ANEXO: GIT
+ 
+sudo apt install git
+git init
+git config user.name "tu nombre"
+git config user.email "tu mail"
+ 
+crear archivo .gitignore con el siguiente contenido
+ 
+*.pyc
+__pycache__
+myvenv
+db.sqlite3
+.DS_Store
+ 
+Luego:
+ 
+git add --all .
+git commit -m "Mi blog en django, primer commit"
+git remote add origin <url_del_repo>
+git push -u origin master
